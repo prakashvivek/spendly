@@ -1,0 +1,205 @@
+/* ------------------------------------------------------------------ */
+/* Hero (landing page only)                                            */
+/* ------------------------------------------------------------------ */
+
+.hero {
+    display: block;
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 5rem 2rem 4rem;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: #e6f7ee;
+    color: #0f9d58;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    margin-bottom: 1.75rem;
+}
+
+.hero-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #0f9d58;
+}
+
+.hero-title {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(2.25rem, 5vw, 3.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 1.5rem;
+}
+
+.hero-title .hero-title-accent {
+    display: block;
+    color: #0f9d58;
+}
+
+.hero-subtitle {
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 auto 2.25rem;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 3.5rem;
+}
+
+.hero-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.hero-btn:hover { background: var(--accent); }
+
+/* ------------------------------------------------------------------ */
+/* Hero window mock                                                    */
+/* ------------------------------------------------------------------ */
+
+.hero-window {
+    background: var(--paper-warm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    text-align: left;
+}
+
+.hero-window-dots {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+    padding-left: 0.25rem;
+}
+
+.hero-window-dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+
+.hero-window-body {
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+}
+
+.hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.hero-stat {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.9rem 1rem;
+}
+
+.hero-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+    margin-bottom: 0.4rem;
+}
+
+.hero-stat-value {
+    display: block;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--ink);
+    margin-bottom: 0.35rem;
+}
+
+.hero-stat-delta {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.hero-stat-delta.up { color: var(--danger); }
+.hero-stat-delta.good { color: #0f9d58; }
+.hero-stat-delta.muted { color: var(--ink-faint); }
+
+.hero-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.hero-bar-row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    align-items: center;
+    gap: 1rem;
+}
+
+.hero-bar-cat {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+
+.hero-bar-track {
+    height: 10px;
+    background: var(--border-soft);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.hero-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.hero-bar-fill.food { background: #f5a623; }
+.hero-bar-fill.travel { background: #3b82f6; }
+.hero-bar-fill.bills { background: #8b5cf6; }
+
+/* ------------------------------------------------------------------ */
+/* Responsive                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+    .hero { padding: 3.5rem 1.5rem 3rem; }
+}
+
+@media (max-width: 600px) {
+    .hero-actions { flex-direction: column; }
+    .hero-btn { width: 100%; justify-content: center; }
+    .hero-stats { grid-template-columns: 1fr; }
+}
