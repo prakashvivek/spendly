@@ -5,6 +5,7 @@ Provides:
     get_db()             — returns a SQLite connection with row_factory
                             and foreign keys enabled
     get_user_by_email()  — looks up a single user by email
+    create_user()        — inserts a new user, returns its id
     init_db()            — creates all tables (CREATE TABLE IF NOT EXISTS)
     seed_db()            — inserts sample data for local development
 
@@ -42,6 +43,25 @@ def get_user_by_email(email):
             "SELECT id, name, email, password_hash FROM users WHERE email = ?",
             (email,),
         ).fetchone()
+    finally:
+        conn.close()
+
+
+def create_user(name, email, password_hash):
+    """Insert a new user row and return its id, or None if the email
+    is already registered.
+    """
+    conn = get_db()
+    try:
+        try:
+            cursor = conn.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+                (name, email, password_hash),
+            )
+            conn.commit()
+            return cursor.lastrowid
+        except sqlite3.IntegrityError:
+            return None
     finally:
         conn.close()
 
