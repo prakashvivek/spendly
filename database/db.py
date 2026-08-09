@@ -29,6 +29,25 @@ def get_db():
     return conn
 
 
+def create_user(name, email, password_hash):
+    """Insert a new user row and return its id, or None if the email
+    is already registered.
+    """
+    conn = get_db()
+    try:
+        try:
+            cursor = conn.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+                (name, email, password_hash),
+            )
+            conn.commit()
+            return cursor.lastrowid
+        except sqlite3.IntegrityError:
+            return None
+    finally:
+        conn.close()
+
+
 def init_db():
     """Create the users and expenses tables if they don't exist yet."""
     conn = get_db()
