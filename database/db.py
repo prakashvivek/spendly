@@ -2,10 +2,12 @@
 Database access layer for Spendly.
 
 Provides:
-    get_db()   — returns a SQLite connection with row_factory and
-                 foreign keys enabled
-    init_db()  — creates all tables (CREATE TABLE IF NOT EXISTS)
-    seed_db()  — inserts sample data for local development
+    get_db()             — returns a SQLite connection with row_factory
+                            and foreign keys enabled
+    get_user_by_email()  — looks up a single user by email
+    create_user()        — inserts a new user, returns its id
+    init_db()            — creates all tables (CREATE TABLE IF NOT EXISTS)
+    seed_db()            — inserts sample data for local development
 
 The SQLite file lives at the project root as `expense_tracker.db`
 (gitignored, created at runtime).
@@ -27,6 +29,41 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def get_user_by_email(email):
+    """Look up a single user by email.
+
+    Returns a sqlite3.Row with columns (id, name, email, password_hash),
+    or None if no user has that email.
+    """
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT id, name, email, password_hash FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def create_user(name, email, password_hash):
+    """Insert a new user row and return its id, or None if the email
+    is already registered.
+    """
+    conn = get_db()
+    try:
+        try:
+            cursor = conn.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+                (name, email, password_hash),
+            )
+            conn.commit()
+            return cursor.lastrowid
+        except sqlite3.IntegrityError:
+            return None
+    finally:
+        conn.close()
 
 
 def init_db():
