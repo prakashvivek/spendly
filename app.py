@@ -44,6 +44,9 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if session.get("user_id"):
+        return redirect(url_for("profile"))
+
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
@@ -79,9 +82,47 @@ def logout():
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
 
+PROFILE_USER = {
+    "name": "Nitish Kumar",
+    "email": "nitish@example.com",
+    "initials": "NK",
+    "member_since": "January 2025",
+}
+
+PROFILE_STATS = [
+    {"label": "Total spent", "value": "₹39,280", "hint": "All time"},
+    {"label": "Transactions", "value": "27", "hint": "All time"},
+    {"label": "Top category", "value": "Food", "hint": "₹14,200 spent"},
+]
+
+PROFILE_TRANSACTIONS = [
+    {"date": "Aug 8, 2026", "description": "Swiggy order", "category": "Food", "color_class": "cat-1", "amount": "₹450"},
+    {"date": "Aug 6, 2026", "description": "Uber ride to airport", "category": "Travel", "color_class": "cat-3", "amount": "₹980"},
+    {"date": "Aug 4, 2026", "description": "Electricity bill", "category": "Bills", "color_class": "cat-2", "amount": "₹2,150"},
+    {"date": "Aug 2, 2026", "description": "Grocery shopping", "category": "Food", "color_class": "cat-1", "amount": "₹1,620"},
+    {"date": "Jul 30, 2026", "description": "Netflix subscription", "category": "Entertainment", "color_class": "cat-4", "amount": "₹499"},
+]
+
+PROFILE_CATEGORIES = [
+    {"name": "Food", "amount": "₹14,200", "percent": 36, "color_class": "cat-1", "width_class": "profile-w-35"},
+    {"name": "Bills", "amount": "₹11,050", "percent": 28, "color_class": "cat-2", "width_class": "profile-w-30"},
+    {"name": "Travel", "amount": "₹9,830", "percent": 25, "color_class": "cat-3", "width_class": "profile-w-25"},
+    {"name": "Entertainment", "amount": "₹4,200", "percent": 11, "color_class": "cat-4", "width_class": "profile-w-10"},
+]
+
+
 @app.route("/profile")
 def profile():
-    return "Profile page — coming in Step 4"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    return render_template(
+        "profile.html",
+        user=PROFILE_USER,
+        stats=PROFILE_STATS,
+        transactions=PROFILE_TRANSACTIONS,
+        categories=PROFILE_CATEGORIES,
+    )
 
 
 @app.route("/expenses/add")
