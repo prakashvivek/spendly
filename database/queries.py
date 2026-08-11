@@ -52,9 +52,27 @@ def get_recent_transactions(user_id, limit=10):
     """Return up to `limit` most recent expenses for user_id, newest first.
     Each item: {"date", "description", "category", "amount"}.
 
-    Implemented in a follow-up step.
+    Returns [] if the user has no expenses.
     """
-    return []
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT date, description, category, amount FROM expenses "
+            "WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return [
+        {
+            "date": row["date"],
+            "description": row["description"],
+            "category": row["category"],
+            "amount": float(row["amount"]),
+        }
+        for row in rows
+    ]
 
 
 def get_category_breakdown(user_id):

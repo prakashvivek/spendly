@@ -23,7 +23,7 @@ Demo dataset (8 expenses, 7 categories, total 346.24, Bills is top):
 import pytest
 from werkzeug.security import generate_password_hash
 
-from database import create_user, get_db
+from database import create_user, get_db, get_recent_transactions
 
 DEMO_EMAIL = "demo@spendly.com"
 DEMO_PASSWORD = "demo123"
@@ -63,3 +63,53 @@ def demo_user(temp_db):
 
 def _login_demo_user(client):
     client.post("/login", data={"email": DEMO_EMAIL, "password": DEMO_PASSWORD})
+
+
+def test_recent_transactions_returns_rows_for_demo_user(demo_user):
+    transactions = get_recent_transactions(demo_user)
+
+    assert len(transactions) == 8
+    assert transactions[0]["date"] == "2026-08-08"
+    for txn in transactions:
+        assert set(txn.keys()) == {"date", "description", "category", "amount"}
+
+
+def test_recent_transactions_newest_first_order(demo_user):
+    transactions = get_recent_transactions(demo_user)
+    dates = [txn["date"] for txn in transactions]
+
+    assert dates == sorted(dates, reverse=True)
+
+
+def test_recent_transactions_nonexistent_user_returns_empty_list(temp_db):
+    assert get_recent_transactions(999999) == []
+
+
+def test_recent_transactions_user_with_no_expenses_returns_empty_list(temp_db):
+    user_id = create_user("No Expenses", "noexpenses@spendly.com", generate_password_hash("password123"))
+
+    assert get_recent_transactions(user_id) == []
+
+
+def test_recent_transactions_respects_limit(demo_user):
+    transactions = get_recent_transactions(demo_user, limit=3)
+
+    assert len(transactions) == 3
+    assert [txn["date"] for txn in transactions] == ["2026-08-08", "2026-08-07", "2026-08-06"]
+
+
+def test_profile_route_shows_transactions_newest_first(client, demo_user):
+    _login_demo_user(client)
+    response = client.get("/profile")
+
+    assert response.status_code == 200
+    aug_8_index = response.data.index(b"Misc purchase")
+    aug_1_index = response.data.index(b"Groceries")
+    assert aug_8_index < aug_1_index
+
+
+def test_profile_route_transactions_show_rupee_symbol(client, demo_user):
+    _login_demo_user(client)
+    response = client.get("/profile")
+
+    assert "₹".encode() in response.data
