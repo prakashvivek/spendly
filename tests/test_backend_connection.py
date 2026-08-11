@@ -23,7 +23,7 @@ Demo dataset (8 expenses, 7 categories, total 346.24, Bills is top):
 import pytest
 from werkzeug.security import generate_password_hash
 
-from database import create_user, get_db, get_recent_transactions
+from database import create_user, get_db, get_recent_transactions, get_summary_stats
 
 DEMO_EMAIL = "demo@spendly.com"
 DEMO_PASSWORD = "demo123"
@@ -113,3 +113,55 @@ def test_profile_route_transactions_show_rupee_symbol(client, demo_user):
     response = client.get("/profile")
 
     assert "₹".encode() in response.data
+
+
+def test_summary_stats_valid_user_with_expenses(demo_user):
+    stats = get_summary_stats(demo_user)
+    assert stats["total_spent"] == pytest.approx(346.24)
+    assert stats["transaction_count"] == 8
+    assert stats["top_category"] == "Bills"
+
+
+def test_summary_stats_nonexistent_user(temp_db):
+    stats = get_summary_stats(999999)
+    assert stats["total_spent"] == pytest.approx(0)
+    assert stats["transaction_count"] == 0
+    assert stats["top_category"] == "—"
+
+
+def test_summary_stats_user_with_no_expenses(temp_db):
+    user_id = create_user(
+        "No Expenses", "no-expenses@spendly.com", generate_password_hash("password123")
+    )
+    stats = get_summary_stats(user_id)
+    assert stats["total_spent"] == pytest.approx(0)
+    assert stats["transaction_count"] == 0
+    assert stats["top_category"] == "—"
+
+
+def test_profile_route_shows_correct_summary_stats(client, demo_user):
+    _login_demo_user(client)
+    response = client.get("/profile")
+    assert response.status_code == 200
+    assert b"346.24" in response.data
+    assert b"8" in response.data
+    assert b"Bills" in response.data
+
+
+def test_profile_route_zero_expense_user_shows_zero_stats(client):
+    client.post(
+        "/register",
+        data={
+            "name": "Zero Expense User",
+            "email": "zero-expense-stats@spendly.com",
+            "password": "password123",
+        },
+    )
+    client.post(
+        "/login",
+        data={"email": "zero-expense-stats@spendly.com", "password": "password123"},
+    )
+    response = client.get("/profile")
+    assert response.status_code == 200
+    assert b"0.00" in response.data
+    assert b"0" in response.data
