@@ -23,7 +23,13 @@ Demo dataset (8 expenses, 7 categories, total 346.24, Bills is top):
 import pytest
 from werkzeug.security import generate_password_hash
 
-from database import create_user, get_db, get_recent_transactions, get_summary_stats
+from database import (
+    create_user,
+    get_category_breakdown,
+    get_db,
+    get_recent_transactions,
+    get_summary_stats,
+)
 
 DEMO_EMAIL = "demo@spendly.com"
 DEMO_PASSWORD = "demo123"
@@ -64,6 +70,10 @@ def demo_user(temp_db):
 def _login_demo_user(client):
     client.post("/login", data={"email": DEMO_EMAIL, "password": DEMO_PASSWORD})
 
+
+# ------------------------------------------------------------------ #
+# SubAgent1 — get_recent_transactions                                #
+# ------------------------------------------------------------------ #
 
 def test_recent_transactions_returns_rows_for_demo_user(demo_user):
     transactions = get_recent_transactions(demo_user)
@@ -115,6 +125,10 @@ def test_profile_route_transactions_show_rupee_symbol(client, demo_user):
     assert "₹".encode() in response.data
 
 
+# ------------------------------------------------------------------ #
+# SubAgent2 — get_summary_stats                                       #
+# ------------------------------------------------------------------ #
+
 def test_summary_stats_valid_user_with_expenses(demo_user):
     stats = get_summary_stats(demo_user)
     assert stats["total_spent"] == pytest.approx(346.24)
@@ -131,7 +145,7 @@ def test_summary_stats_nonexistent_user(temp_db):
 
 def test_summary_stats_user_with_no_expenses(temp_db):
     user_id = create_user(
-        "No Expenses", "no-expenses@spendly.com", generate_password_hash("password123")
+        "No Expenses", "no-expenses-stats@spendly.com", generate_password_hash("password123")
     )
     stats = get_summary_stats(user_id)
     assert stats["total_spent"] == pytest.approx(0)
@@ -165,3 +179,69 @@ def test_profile_route_zero_expense_user_shows_zero_stats(client):
     assert response.status_code == 200
     assert b"0.00" in response.data
     assert b"0" in response.data
+
+
+# ------------------------------------------------------------------ #
+# SubAgent3 — get_category_breakdown                                  #
+# ------------------------------------------------------------------ #
+
+def test_category_breakdown_valid_user(demo_user):
+    result = get_category_breakdown(demo_user)
+
+    assert len(result) == 7
+    assert result[0]["name"] == "Bills"
+    assert result[0]["amount"] == pytest.approx(165.74)
+    assert sum(c["pct"] for c in result) == 100
+
+
+def test_category_breakdown_nonexistent_user(temp_db):
+    assert get_category_breakdown(999999) == []
+
+
+def test_category_breakdown_user_with_no_expenses(temp_db):
+    user_id = create_user(
+        "No Expenses", "no-expenses-categories@spendly.com", generate_password_hash("password123")
+    )
+    assert get_category_breakdown(user_id) == []
+
+
+def test_category_breakdown_percentages_are_integers(demo_user):
+    result = get_category_breakdown(demo_user)
+    for category in result:
+        assert isinstance(category["pct"], int)
+
+
+def test_profile_route_shows_all_seven_categories(client, demo_user):
+    _login_demo_user(client)
+
+    response = client.get("/profile")
+
+    assert response.status_code == 200
+    for category_name in (
+        b"Food",
+        b"Transport",
+        b"Bills",
+        b"Shopping",
+        b"Entertainment",
+        b"Health",
+        b"Other",
+    ):
+        assert category_name in response.data
+
+
+def test_profile_route_category_breakdown_no_crash_on_empty(client):
+    client.post(
+        "/register",
+        data={
+            "name": "Empty Categories",
+            "email": "empty-categories@spendly.com",
+            "password": "password123",
+        },
+    )
+    client.post(
+        "/login", data={"email": "empty-categories@spendly.com", "password": "password123"}
+    )
+
+    response = client.get("/profile")
+
+    assert response.status_code == 200
