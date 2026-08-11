@@ -72,7 +72,7 @@ pytest -s
 | `GET /login` | Implemented — renders `login.html` |
 | `POST /login` | Implemented — verifies credentials, sets session |
 | `GET /logout` | Implemented — clears session, redirects to `/login` |
-| `GET /profile` | Stub — Step 4 |
+| `GET /profile` | Implemented — real SQLite data via `database/queries.py` |
 | `GET /expenses/add` | Stub — Step 7 |
 | `GET /expenses/<id>/edit` | Stub — Step 8 |
 | `GET /expenses/<id>/delete` | Stub — Step 9 |

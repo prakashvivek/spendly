@@ -39,9 +39,9 @@ def test_profile_shows_at_least_three_stats(client):
 def test_profile_shows_transaction_table_with_at_least_three_rows(client):
     _login(client)
     response = client.get("/profile")
-    assert b"Swiggy order" in response.data
-    assert b"Uber ride to airport" in response.data
-    assert b"Electricity bill" in response.data
+    assert b"Lunch with team" in response.data
+    assert b"Cab to airport" in response.data
+    assert b"New headphones" in response.data
 
 
 def test_profile_shows_category_breakdown_with_at_least_three_categories(client):
@@ -49,8 +49,8 @@ def test_profile_shows_category_breakdown_with_at_least_three_categories(client)
     response = client.get("/profile")
     assert response.data.count(b"profile-cat-row") >= 3
     assert b"Food" in response.data
-    assert b"Bills" in response.data
-    assert b"Travel" in response.data
+    assert b"Transport" in response.data
+    assert b"Shopping" in response.data
 
 
 def test_navbar_shows_logged_in_state_after_login(client):
