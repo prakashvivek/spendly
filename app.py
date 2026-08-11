@@ -3,7 +3,14 @@ import os
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database import create_user, get_user_by_email
+from database import (
+    create_user,
+    get_category_breakdown,
+    get_recent_transactions,
+    get_summary_stats,
+    get_user_by_email,
+    get_user_by_id,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-secret-key")
@@ -78,50 +85,90 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ------------------------------------------------------------------ #
-# Placeholder routes — students will implement these                  #
-# ------------------------------------------------------------------ #
+def _initials(name):
+    """First letter of up to the first two words of a name, uppercased."""
+    parts = name.split()
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[1][0]).upper()
 
-PROFILE_USER = {
-    "name": "Nitish Kumar",
-    "email": "nitish@example.com",
-    "initials": "NK",
-    "member_since": "January 2025",
-}
 
-PROFILE_STATS = [
-    {"label": "Total spent", "value": "₹39,280", "hint": "All time"},
-    {"label": "Transactions", "value": "27", "hint": "All time"},
-    {"label": "Top category", "value": "Food", "hint": "₹14,200 spent"},
-]
+def _category_color_map(categories):
+    """Assign cat-1..cat-4 to each distinct category name in ranking order,
+    cycling if there are more than 4 (profile.css only defines 4 colors).
+    """
+    return {cat["name"]: f"cat-{(i % 4) + 1}" for i, cat in enumerate(categories)}
 
-PROFILE_TRANSACTIONS = [
-    {"date": "Aug 8, 2026", "description": "Swiggy order", "category": "Food", "color_class": "cat-1", "amount": "₹450"},
-    {"date": "Aug 6, 2026", "description": "Uber ride to airport", "category": "Travel", "color_class": "cat-3", "amount": "₹980"},
-    {"date": "Aug 4, 2026", "description": "Electricity bill", "category": "Bills", "color_class": "cat-2", "amount": "₹2,150"},
-    {"date": "Aug 2, 2026", "description": "Grocery shopping", "category": "Food", "color_class": "cat-1", "amount": "₹1,620"},
-    {"date": "Jul 30, 2026", "description": "Netflix subscription", "category": "Entertainment", "color_class": "cat-4", "amount": "₹499"},
-]
 
-PROFILE_CATEGORIES = [
-    {"name": "Food", "amount": "₹14,200", "percent": 36, "color_class": "cat-1", "width_class": "profile-w-35"},
-    {"name": "Bills", "amount": "₹11,050", "percent": 28, "color_class": "cat-2", "width_class": "profile-w-30"},
-    {"name": "Travel", "amount": "₹9,830", "percent": 25, "color_class": "cat-3", "width_class": "profile-w-25"},
-    {"name": "Entertainment", "amount": "₹4,200", "percent": 11, "color_class": "cat-4", "width_class": "profile-w-10"},
-]
+def _width_class(pct):
+    """Round a percent to the nearest 5 and clamp to the available
+    profile-w-5..profile-w-100 CSS step classes.
+    """
+    if pct <= 0:
+        return "profile-w-5"
+    rounded = min(100, max(5, round(pct / 5) * 5))
+    return f"profile-w-{rounded}"
 
 
 @app.route("/profile")
 def profile():
-    if not session.get("user_id"):
+    user_id = session.get("user_id")
+    if not user_id:
         return redirect(url_for("login"))
+
+    user_row = get_user_by_id(user_id)
+    if user_row is None:
+        session.clear()
+        return redirect(url_for("login"))
+
+    summary = get_summary_stats(user_id)
+    raw_transactions = get_recent_transactions(user_id, limit=10)
+    raw_categories = get_category_breakdown(user_id)
+    category_colors = _category_color_map(raw_categories)
+
+    user = {
+        "name": user_row["name"],
+        "email": user_row["email"],
+        "initials": _initials(user_row["name"]),
+        "member_since": user_row["member_since"],
+    }
+
+    stats = [
+        {"label": "Total spent", "value": f"₹{summary['total_spent']:,.2f}", "hint": "All time"},
+        {"label": "Transactions", "value": str(summary["transaction_count"]), "hint": "All time"},
+        {"label": "Top category", "value": summary["top_category"], "hint": "Highest spend"},
+    ]
+
+    transactions = [
+        {
+            "date": txn["date"],
+            "description": txn["description"],
+            "category": txn["category"],
+            "color_class": category_colors.get(txn["category"], "cat-1"),
+            "amount": f"₹{txn['amount']:,.2f}",
+        }
+        for txn in raw_transactions
+    ]
+
+    categories = [
+        {
+            "name": cat["name"],
+            "amount": f"₹{cat['amount']:,.2f}",
+            "percent": cat["pct"],
+            "color_class": category_colors[cat["name"]],
+            "width_class": _width_class(cat["pct"]),
+        }
+        for cat in raw_categories
+    ]
 
     return render_template(
         "profile.html",
-        user=PROFILE_USER,
-        stats=PROFILE_STATS,
-        transactions=PROFILE_TRANSACTIONS,
-        categories=PROFILE_CATEGORIES,
+        user=user,
+        stats=stats,
+        transactions=transactions,
+        categories=categories,
     )
 
 
