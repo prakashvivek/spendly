@@ -42,10 +42,28 @@ def get_summary_stats(user_id):
     """Return {"total_spent", "transaction_count", "top_category"} for a
     user's expenses. Zero-expense case: total_spent=0, transaction_count=0,
     top_category="—".
-
-    Implemented in a follow-up step.
     """
-    return {"total_spent": 0, "transaction_count": 0, "top_category": "—"}
+    conn = get_db()
+    try:
+        totals_row = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count "
+            "FROM expenses WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+
+        top_row = conn.execute(
+            "SELECT category, SUM(amount) AS total FROM expenses "
+            "WHERE user_id = ? GROUP BY category ORDER BY total DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return {
+        "total_spent": totals_row["total"],
+        "transaction_count": totals_row["count"],
+        "top_category": top_row["category"] if top_row is not None else "—",
+    }
 
 
 def get_recent_transactions(user_id, limit=10):
