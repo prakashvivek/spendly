@@ -61,6 +61,38 @@ def get_category_breakdown(user_id):
     """Return categories for user_id ordered by amount desc:
     [{"name", "amount", "pct"}, ...] with integer pct values summing to 100.
 
-    Implemented in a follow-up step.
+    Integer percentages are computed with the largest-remainder method
+    (Hamilton apportionment) so they always sum to exactly 100.
     """
-    return []
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT category, SUM(amount) AS total FROM expenses "
+            "WHERE user_id = ? GROUP BY category ORDER BY total DESC",
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return []
+
+    grand_total = sum(row["total"] for row in rows)
+
+    bases = []
+    remainders = []
+    for row in rows:
+        raw = row["total"] / grand_total * 100
+        base = int(raw // 1)
+        bases.append(base)
+        remainders.append(raw - base)
+
+    leftover = 100 - sum(bases)
+    order = sorted(range(len(rows)), key=lambda i: remainders[i], reverse=True)
+    for i in order[:leftover]:
+        bases[i] += 1
+
+    return [
+        {"name": row["category"], "amount": row["total"], "pct": bases[i]}
+        for i, row in enumerate(rows)
+    ]

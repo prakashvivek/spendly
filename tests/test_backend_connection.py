@@ -24,6 +24,7 @@ import pytest
 from werkzeug.security import generate_password_hash
 
 from database import create_user, get_db
+from database import get_category_breakdown
 
 DEMO_EMAIL = "demo@spendly.com"
 DEMO_PASSWORD = "demo123"
@@ -63,3 +64,65 @@ def demo_user(temp_db):
 
 def _login_demo_user(client):
     client.post("/login", data={"email": DEMO_EMAIL, "password": DEMO_PASSWORD})
+
+
+def test_category_breakdown_valid_user(demo_user):
+    result = get_category_breakdown(demo_user)
+
+    assert len(result) == 7
+    assert result[0]["name"] == "Bills"
+    assert result[0]["amount"] == pytest.approx(165.74)
+    assert sum(c["pct"] for c in result) == 100
+
+
+def test_category_breakdown_nonexistent_user(temp_db):
+    assert get_category_breakdown(999999) == []
+
+
+def test_category_breakdown_user_with_no_expenses(temp_db):
+    user_id = create_user(
+        "No Expenses", "no-expenses@spendly.com", generate_password_hash("password123")
+    )
+    assert get_category_breakdown(user_id) == []
+
+
+def test_category_breakdown_percentages_are_integers(demo_user):
+    result = get_category_breakdown(demo_user)
+    for category in result:
+        assert isinstance(category["pct"], int)
+
+
+def test_profile_route_shows_all_seven_categories(client, demo_user):
+    _login_demo_user(client)
+
+    response = client.get("/profile")
+
+    assert response.status_code == 200
+    for category_name in (
+        b"Food",
+        b"Transport",
+        b"Bills",
+        b"Shopping",
+        b"Entertainment",
+        b"Health",
+        b"Other",
+    ):
+        assert category_name in response.data
+
+
+def test_profile_route_category_breakdown_no_crash_on_empty(client):
+    client.post(
+        "/register",
+        data={
+            "name": "Empty Categories",
+            "email": "empty-categories@spendly.com",
+            "password": "password123",
+        },
+    )
+    client.post(
+        "/login", data={"email": "empty-categories@spendly.com", "password": "password123"}
+    )
+
+    response = client.get("/profile")
+
+    assert response.status_code == 200
