@@ -4,6 +4,7 @@ from database.queries import (
     get_recent_transactions,
     get_summary_stats,
     get_user_by_id,
+    insert_expense,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "get_recent_transactions",
     "get_summary_stats",
     "get_user_by_id",
+    "insert_expense",
 ]

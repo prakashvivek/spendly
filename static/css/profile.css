@@ -27,6 +27,18 @@
     height: 20px;
 }
 
+.profile-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.profile-section-header .profile-section-title {
+    margin-bottom: 0;
+}
+
 .profile-card {
     background: var(--paper-card);
     border: 1px solid var(--border);
@@ -78,6 +90,89 @@
 .profile-member-since svg {
     width: 14px;
     height: 14px;
+}
+
+/* Date filter bar */
+
+.profile-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile-filter-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.profile-filter-pill {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper-card);
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.profile-filter-pill-active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.profile-filter-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+}
+
+.profile-filter-custom-active {
+    border-color: var(--accent);
+    background: var(--paper-warm);
+}
+
+.profile-filter-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+}
+
+.profile-filter-label input[type="date"] {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--paper-card);
+    color: var(--ink);
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+    font-family: var(--font-body);
+}
+
+.profile-filter-apply {
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: var(--paper-card);
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.profile-filter-range {
+    margin-left: auto;
+    color: var(--ink-muted);
+    font-size: 0.8rem;
 }
 
 /* Stats row */
@@ -265,6 +360,15 @@ td.profile-amount {
 @media (max-width: 900px) {
     .profile-stats {
         grid-template-columns: 1fr;
+    }
+
+    .profile-filter-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .profile-filter-range {
+        margin-left: 0;
     }
 }
 

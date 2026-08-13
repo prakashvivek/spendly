@@ -1,4 +1,7 @@
+import math
 import os
+from calendar import monthrange
+from datetime import date, datetime
 
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -10,10 +13,13 @@ from database import (
     get_summary_stats,
     get_user_by_email,
     get_user_by_id,
+    insert_expense,
 )
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-secret-key")
+
+EXPENSE_CATEGORIES = ["Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other"]
 
 
 # ------------------------------------------------------------------ #
@@ -112,6 +118,81 @@ def _width_class(pct):
     return f"profile-w-{rounded}"
 
 
+def _parse_date(value):
+    """Parse an ISO "YYYY-MM-DD" string into a date, or None if missing
+    or malformed."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _today():
+    """Wraps date.today() so tests can monkeypatch "now" deterministically."""
+    return date.today()
+
+
+def _subtract_months(d, months):
+    """Return d shifted back by `months` calendar months, clamping the day
+    of month for shorter target months (e.g. Aug 31 - 6 months -> Feb 28)."""
+    month_index = d.month - 1 - months
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(d.day, monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _presets(today):
+    """Quick-select date ranges anchored on `today`, in display order."""
+    month_start = today.replace(day=1)
+    return [
+        {"key": "this_month", "label": "This Month", "date_from": month_start, "date_to": today},
+        {"key": "last_3_months", "label": "Last 3 Months", "date_from": _subtract_months(today, 3), "date_to": today},
+        {"key": "last_6_months", "label": "Last 6 Months", "date_from": _subtract_months(today, 6), "date_to": today},
+        {"key": "all_time", "label": "All Time", "date_from": None, "date_to": None},
+    ]
+
+
+def _filter_view_context(today, date_from, date_to, filter_error):
+    """Build everything the template needs to render the filter bar:
+    preset links (with active state), whether the custom range is active,
+    and the human-readable range label.
+    """
+    presets = _presets(today)
+    active_preset = None
+    if filter_error is None:
+        if date_from is None and date_to is None:
+            active_preset = "all_time"
+        else:
+            for preset in presets:
+                if preset["date_from"] == date_from and preset["date_to"] == date_to:
+                    active_preset = preset["key"]
+                    break
+
+    preset_links = [
+        {
+            "label": preset["label"],
+            "url": url_for(
+                "profile",
+                date_from=preset["date_from"].isoformat() if preset["date_from"] else None,
+                date_to=preset["date_to"].isoformat() if preset["date_to"] else None,
+            ),
+            "active": preset["key"] == active_preset,
+        }
+        for preset in presets
+    ]
+    is_custom_active = filter_error is not None or (active_preset is None and date_from is not None)
+    range_label = (
+        f"{date_from.strftime('%d %b %Y')} – {date_to.strftime('%d %b %Y')}"
+        if date_from
+        else "All Time"
+    )
+
+    return preset_links, is_custom_active, range_label
+
+
 @app.route("/profile")
 def profile():
     user_id = session.get("user_id")
@@ -123,10 +204,33 @@ def profile():
         session.clear()
         return redirect(url_for("login"))
 
-    summary = get_summary_stats(user_id)
-    raw_transactions = get_recent_transactions(user_id, limit=10)
-    raw_categories = get_category_breakdown(user_id)
+    raw_from = request.args.get("date_from", "")
+    raw_to = request.args.get("date_to", "")
+    parsed_from = _parse_date(raw_from)
+    parsed_to = _parse_date(raw_to)
+
+    filter_error = None
+    date_from = date_to = None
+    if parsed_from is not None and parsed_to is not None:
+        if parsed_from > parsed_to:
+            filter_error = "Start date must be before end date."
+        else:
+            date_from, date_to = parsed_from, parsed_to
+
+    date_from_str = date_from.isoformat() if date_from else None
+    date_to_str = date_to.isoformat() if date_to else None
+
+    summary = get_summary_stats(user_id, date_from=date_from_str, date_to=date_to_str)
+    raw_transactions = get_recent_transactions(
+        user_id, limit=10, date_from=date_from_str, date_to=date_to_str
+    )
+    raw_categories = get_category_breakdown(user_id, date_from=date_from_str, date_to=date_to_str)
     category_colors = _category_color_map(raw_categories)
+
+    today = _today()
+    preset_links, is_custom_active, range_label = _filter_view_context(
+        today, date_from, date_to, filter_error
+    )
 
     user = {
         "name": user_row["name"],
@@ -136,8 +240,8 @@ def profile():
     }
 
     stats = [
-        {"label": "Total spent", "value": f"₹{summary['total_spent']:,.2f}", "hint": "All time"},
-        {"label": "Transactions", "value": str(summary["transaction_count"]), "hint": "All time"},
+        {"label": "Total spent", "value": f"₹{summary['total_spent']:,.2f}", "hint": range_label},
+        {"label": "Transactions", "value": str(summary["transaction_count"]), "hint": range_label},
         {"label": "Top category", "value": summary["top_category"], "hint": "Highest spend"},
     ]
 
@@ -169,12 +273,75 @@ def profile():
         stats=stats,
         transactions=transactions,
         categories=categories,
+        preset_links=preset_links,
+        is_custom_active=is_custom_active,
+        filter_error=filter_error,
+        range_label=range_label,
+        date_from_value=raw_from,
+        date_to_value=raw_to,
     )
 
 
-@app.route("/expenses/add")
+@app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
-    return "Add expense — coming in Step 7"
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    today = _today().isoformat()
+
+    if request.method == "GET":
+        return render_template("add_expense.html", categories=EXPENSE_CATEGORIES, today=today)
+
+    amount_raw = request.form.get("amount", "")
+    category = request.form.get("category", "")
+    date_raw = request.form.get("date", "")
+    description_raw = request.form.get("description", "")
+
+    form_values = {
+        "amount": amount_raw,
+        "category": category,
+        "date": date_raw,
+        "description": description_raw,
+    }
+
+    try:
+        amount = float(amount_raw)
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError
+    except ValueError:
+        return render_template(
+            "add_expense.html",
+            categories=EXPENSE_CATEGORIES,
+            today=today,
+            error="Enter an amount greater than 0.",
+            form_values=form_values,
+        )
+
+    if category not in EXPENSE_CATEGORIES:
+        return render_template(
+            "add_expense.html",
+            categories=EXPENSE_CATEGORIES,
+            today=today,
+            error="Select a valid category.",
+            form_values=form_values,
+        )
+
+    try:
+        datetime.strptime(date_raw, "%Y-%m-%d")
+    except ValueError:
+        return render_template(
+            "add_expense.html",
+            categories=EXPENSE_CATEGORIES,
+            today=today,
+            error="Enter a valid date.",
+            form_values=form_values,
+        )
+
+    description = description_raw.strip()[:200] or None
+
+    insert_expense(user_id, amount, category, date_raw, description)
+    return redirect(url_for("profile"))
 
 
 @app.route("/expenses/<int:id>/edit")
