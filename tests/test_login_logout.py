@@ -79,3 +79,13 @@ def test_login_page_form_action_uses_url_for(client):
     response = client.get("/login")
     assert response.status_code == 200
     assert b'action="/login"' in response.data
+
+
+def test_login_page_redirects_to_profile_when_already_logged_in(client):
+    client.post(
+        "/login",
+        data={"email": "nitish@example.com", "password": "password123"},
+    )
+    response = client.get("/login")
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/profile"

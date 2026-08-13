@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Your Profile — Spendly{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-wrap">
+
+    <section class="profile-section">
+        <div class="profile-card profile-header">
+            <div class="profile-avatar">{{ user.initials }}</div>
+            <div class="profile-header-info">
+                <h1 class="profile-name">{{ user.name }}</h1>
+                <p class="profile-email">{{ user.email }}</p>
+                <p class="profile-member-since"><i data-lucide="calendar"></i> Member since {{ user.member_since }}</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="profile-section">
+        {% if filter_error %}
+        <div class="auth-error">{{ filter_error }}</div>
+        {% endif %}
+        <div class="profile-card profile-filter-bar">
+            <div class="profile-filter-presets">
+                {% for preset in preset_links %}
+                <a href="{{ preset.url }}"
+                   class="profile-filter-pill{% if preset.active %} profile-filter-pill-active{% endif %}">
+                    {{ preset.label }}
+                </a>
+                {% endfor %}
+            </div>
+            <form method="get" action="{{ url_for('profile') }}"
+                  class="profile-filter-custom{% if is_custom_active %} profile-filter-custom-active{% endif %}">
+                <label class="profile-filter-label">From
+                    <input type="date" name="date_from" value="{{ date_from_value }}">
+                </label>
+                <label class="profile-filter-label">To
+                    <input type="date" name="date_to" value="{{ date_to_value }}">
+                </label>
+                <button type="submit" class="profile-filter-apply">Apply</button>
+            </form>
+            <p class="profile-filter-range">Showing: {{ range_label }}</p>
+        </div>
+    </section>
+
+    <section class="profile-section">
+        <h2 class="profile-section-title"><i data-lucide="wallet"></i> Overview</h2>
+        <div class="profile-stats">
+            {% for stat in stats %}
+            <div class="profile-card profile-stat">
+                <span class="profile-stat-label">{{ stat.label }}</span>
+                <span class="profile-stat-value">{{ stat.value }}</span>
+                <span class="profile-stat-hint">{{ stat.hint }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="profile-section">
+        <div class="profile-section-header">
+            <h2 class="profile-section-title"><i data-lucide="credit-card"></i> Recent transactions</h2>
+            <a href="{{ url_for('add_expense') }}" class="btn-primary">Add Expense</a>
+        </div>
+        <div class="profile-card profile-table-wrap">
+            <table class="profile-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th class="profile-amount">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in transactions %}
+                    <tr>
+                        <td>{{ txn.date }}</td>
+                        <td>{{ txn.description }}</td>
+                        <td><span class="profile-badge {{ txn.color_class }}">{{ txn.category }}</span></td>
+                        <td class="profile-amount">{{ txn.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="profile-section">
+        <h2 class="profile-section-title"><i data-lucide="tag"></i> Spending by category</h2>
+        <div class="profile-card">
+            {% for cat in categories %}
+            <div class="profile-cat-row">
+                <span class="profile-cat-name">{{ cat.name }}</span>
+                <div class="profile-cat-track">
+                    <div class="profile-cat-fill {{ cat.color_class }} {{ cat.width_class }}"></div>
+                </div>
+                <span class="profile-cat-amount">{{ cat.amount }} <small>({{ cat.percent }}%)</small></span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+</div>
+
+{% endblock %}
