@@ -3,9 +3,10 @@ Query helpers for pages that read and write expense data.
 
 Kept separate from database/db.py (which owns auth/user CRUD). Most
 functions here are read-only reporting queries for the profile page;
-insert_expense() is the one write path, added for the add-expense form.
-Each function opens its own connection via get_db() and closes it before
-returning, so callers never have to manage connections themselves.
+insert_expense() and update_expense() are the write paths, added for the
+add-expense and edit-expense forms. Each function opens its own connection
+via get_db() and closes it before returning, so callers never have to
+manage connections themselves.
 """
 
 from datetime import datetime
@@ -84,7 +85,7 @@ def get_summary_stats(user_id, date_from=None, date_to=None):
 
 def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
     """Return up to `limit` most recent expenses for user_id, newest first.
-    Each item: {"date", "description", "category", "amount"}.
+    Each item: {"id", "date", "description", "category", "amount"}.
 
     Returns [] if the user has no expenses. If date_from and date_to are
     both given (ISO "YYYY-MM-DD" strings), only expenses with date in that
@@ -94,7 +95,7 @@ def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
     try:
         clause, date_params = _date_filter_clause(date_from, date_to)
         rows = conn.execute(
-            "SELECT date, description, category, amount FROM expenses "
+            "SELECT id, date, description, category, amount FROM expenses "
             "WHERE user_id = ?" + clause + " "
             "ORDER BY date DESC, id DESC LIMIT ?",
             (user_id, *date_params, limit),
@@ -104,6 +105,7 @@ def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
 
     return [
         {
+            "id": row["id"],
             "date": row["date"],
             "description": row["description"],
             "category": row["category"],
@@ -172,5 +174,55 @@ def insert_expense(user_id, amount, category, date, description):
         )
         conn.commit()
         return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def get_expense_by_id(expense_id, user_id):
+    """Look up a single expense by id, scoped to the given user.
+
+    Returns {"id", "amount", "category", "date", "description"}, or None if
+    no expense with that id exists for this user (either it doesn't exist at
+    all, or it belongs to a different user).
+    """
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, amount, category, date, description FROM expenses "
+            "WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return None
+
+    return {
+        "id": row["id"],
+        "amount": float(row["amount"]),
+        "category": row["category"],
+        "date": row["date"],
+        "description": row["description"],
+    }
+
+
+def update_expense(expense_id, user_id, amount, category, date, description):
+    """Update an existing expense row in place, scoped to id AND user_id.
+
+    description may be None, stored as NULL. If expense_id doesn't exist, or
+    belongs to a different user, this is a silent no-op (0 rows affected) --
+    callers are expected to have already verified ownership via
+    get_expense_by_id before calling this; the user_id scoping here is a
+    second guard, not the primary check.
+    """
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE expenses SET amount = ?, category = ?, date = ?, description = ? "
+            "WHERE id = ? AND user_id = ?",
+            (amount, category, date, description, expense_id, user_id),
+        )
+        conn.commit()
     finally:
         conn.close()

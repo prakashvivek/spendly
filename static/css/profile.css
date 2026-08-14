@@ -246,6 +246,25 @@
     border-bottom: none;
 }
 
+th.profile-actions,
+td.profile-actions {
+    text-align: right;
+}
+
+.profile-edit-link {
+    display: inline-block;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-sm);
+}
+
+.profile-edit-link:hover {
+    background: var(--accent-light);
+}
+
 th.profile-amount,
 td.profile-amount {
     text-align: right;

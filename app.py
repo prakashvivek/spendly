@@ -3,17 +3,19 @@ import os
 from calendar import monthrange
 from datetime import date, datetime
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, abort, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
     create_user,
     get_category_breakdown,
+    get_expense_by_id,
     get_recent_transactions,
     get_summary_stats,
     get_user_by_email,
     get_user_by_id,
     insert_expense,
+    update_expense,
 )
 
 app = Flask(__name__)
@@ -134,6 +136,45 @@ def _today():
     return date.today()
 
 
+def _validate_expense_form(form):
+    """Validate raw amount/category/date/description fields shared by
+    add_expense and edit_expense. Returns (form_values, error, parsed):
+      - form_values: dict of raw submitted values, for re-populating the
+        form on error
+      - error: None on success, else a user-facing error message
+      - parsed: (amount, category, date_raw, description) on success, else None
+    """
+    amount_raw = form.get("amount", "")
+    category = form.get("category", "")
+    date_raw = form.get("date", "")
+    description_raw = form.get("description", "")
+
+    form_values = {
+        "amount": amount_raw,
+        "category": category,
+        "date": date_raw,
+        "description": description_raw,
+    }
+
+    try:
+        amount = float(amount_raw)
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError
+    except ValueError:
+        return form_values, "Enter an amount greater than 0.", None
+
+    if category not in EXPENSE_CATEGORIES:
+        return form_values, "Select a valid category.", None
+
+    try:
+        datetime.strptime(date_raw, "%Y-%m-%d")
+    except ValueError:
+        return form_values, "Enter a valid date.", None
+
+    description = description_raw.strip()[:200] or None
+    return form_values, None, (amount, category, date_raw, description)
+
+
 def _subtract_months(d, months):
     """Return d shifted back by `months` calendar months, clamping the day
     of month for shorter target months (e.g. Aug 31 - 6 months -> Feb 28)."""
@@ -247,6 +288,7 @@ def profile():
 
     transactions = [
         {
+            "id": txn["id"],
             "date": txn["date"],
             "description": txn["description"],
             "category": txn["category"],
@@ -293,60 +335,49 @@ def add_expense():
     if request.method == "GET":
         return render_template("add_expense.html", categories=EXPENSE_CATEGORIES, today=today)
 
-    amount_raw = request.form.get("amount", "")
-    category = request.form.get("category", "")
-    date_raw = request.form.get("date", "")
-    description_raw = request.form.get("description", "")
-
-    form_values = {
-        "amount": amount_raw,
-        "category": category,
-        "date": date_raw,
-        "description": description_raw,
-    }
-
-    try:
-        amount = float(amount_raw)
-        if not math.isfinite(amount) or amount <= 0:
-            raise ValueError
-    except ValueError:
+    form_values, error, parsed = _validate_expense_form(request.form)
+    if error:
         return render_template(
             "add_expense.html",
             categories=EXPENSE_CATEGORIES,
             today=today,
-            error="Enter an amount greater than 0.",
+            error=error,
             form_values=form_values,
         )
 
-    if category not in EXPENSE_CATEGORIES:
-        return render_template(
-            "add_expense.html",
-            categories=EXPENSE_CATEGORIES,
-            today=today,
-            error="Select a valid category.",
-            form_values=form_values,
-        )
-
-    try:
-        datetime.strptime(date_raw, "%Y-%m-%d")
-    except ValueError:
-        return render_template(
-            "add_expense.html",
-            categories=EXPENSE_CATEGORIES,
-            today=today,
-            error="Enter a valid date.",
-            form_values=form_values,
-        )
-
-    description = description_raw.strip()[:200] or None
-
+    amount, category, date_raw, description = parsed
     insert_expense(user_id, amount, category, date_raw, description)
     return redirect(url_for("profile"))
 
 
-@app.route("/expenses/<int:id>/edit")
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
 def edit_expense(id):
-    return "Edit expense — coming in Step 8"
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    expense = get_expense_by_id(id, user_id)
+    if expense is None:
+        abort(404)
+
+    if request.method == "GET":
+        return render_template(
+            "edit_expense.html", expense=expense, categories=EXPENSE_CATEGORIES
+        )
+
+    form_values, error, parsed = _validate_expense_form(request.form)
+    if error:
+        return render_template(
+            "edit_expense.html",
+            expense=expense,
+            categories=EXPENSE_CATEGORIES,
+            error=error,
+            form_values=form_values,
+        )
+
+    amount, category, date_raw, description = parsed
+    update_expense(id, user_id, amount, category, date_raw, description)
+    return redirect(url_for("profile"))
 
 
 @app.route("/expenses/<int:id>/delete")

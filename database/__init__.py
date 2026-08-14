@@ -1,10 +1,12 @@
 from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
 from database.queries import (
     get_category_breakdown,
+    get_expense_by_id,
     get_recent_transactions,
     get_summary_stats,
     get_user_by_id,
     insert_expense,
+    update_expense,
 )
 
 __all__ = [
@@ -14,8 +16,10 @@ __all__ = [
     "init_db",
     "seed_db",
     "get_category_breakdown",
+    "get_expense_by_id",
     "get_recent_transactions",
     "get_summary_stats",
     "get_user_by_id",
     "insert_expense",
+    "update_expense",
 ]
