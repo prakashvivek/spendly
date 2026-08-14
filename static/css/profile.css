@@ -265,6 +265,27 @@ td.profile-actions {
     background: var(--accent-light);
 }
 
+.profile-delete-form {
+    display: inline;
+}
+
+.btn-delete {
+    display: inline-block;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--danger);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-sm);
+}
+
+.btn-delete:hover {
+    background: var(--danger-light);
+}
+
 th.profile-amount,
 td.profile-amount {
     text-align: right;

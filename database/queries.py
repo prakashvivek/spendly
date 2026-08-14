@@ -226,3 +226,22 @@ def update_expense(expense_id, user_id, amount, category, date, description):
         conn.commit()
     finally:
         conn.close()
+
+
+def delete_expense(expense_id, user_id):
+    """Permanently delete an expense row, scoped to id AND user_id.
+
+    Silent no-op (0 rows affected) if expense_id doesn't exist or belongs
+    to a different user -- callers are expected to have already verified
+    ownership via get_expense_by_id before calling this; the user_id
+    scoping here is a second guard, not the primary check.
+    """
+    conn = get_db()
+    try:
+        conn.execute(
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
